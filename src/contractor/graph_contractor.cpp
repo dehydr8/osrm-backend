@@ -645,7 +645,7 @@ std::vector<bool> contractGraph(ContractorGraph &graph,
 
     const util::XORFastHash<> hash;
 
-    unsigned current_level = 0;
+    [[maybe_unused]] unsigned current_level = 0;
     std::size_t next_renumbering = number_of_nodes * 0.35;
     while (remaining_nodes.size() > number_of_core_nodes)
     {
