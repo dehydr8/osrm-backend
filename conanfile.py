@@ -19,15 +19,19 @@ class OsrmConan(ConanFile):
         self.options["boost"].without_coroutine = True
         self.options["boost"].without_stacktrace = True
         self.options["boost"].without_cobalt = True
-        self.options["bzip2"].shared = True
-        self.options["xz-utils"].shared = True
+        self.options["bzip2"].shared = False
+        self.options["xz-utils"].shared = False
         
     def generate(self):
         tc = CMakeToolchain(self)
         tc.variables["CMAKE_CXX_STANDARD"] = "20"
         tc.variables["Bzip2_ROOT"] = "${CMAKE_BINARY_DIR}"
         tc.variables["LZMA_ROOT"] = "${CMAKE_BINARY_DIR}"
-        tc.variables["TBB_ROOT"] = "${CONAN_ONETBB_ROOT}"
+
+        # get TBB root from dependencies
+        tbb_root = self.dependencies["onetbb"].package_folder
+        tc.variables["TBB_ROOT"] = tbb_root
+
         tc.generate()
 
     def build(self):

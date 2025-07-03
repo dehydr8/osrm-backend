@@ -47,13 +47,39 @@ endforeach(binary)
 # For Conan-enabled builds we copy over tbb's shared objects for packaging.
 # TODO: consider using statically linked tbb library (for node_osrm only!)
 if (ENABLE_CONAN)
-  foreach(libpath ${CONAN_LIB_DIRS_ONETBB})
+    foreach(libpath ${TBB_ROOT}/lib)
     file(GLOB TBBGlob ${libpath}/*.*)
     foreach(filepath ${TBBGlob})
       get_filename_component(filename ${filepath} NAME)
-      add_custom_command(OUTPUT "${BINDING_DIR}/${filename}"
-                         COMMAND ${CMAKE_COMMAND} -E copy ${filepath} ${BINDING_DIR}
-                         DEPENDS ${filepath} ${BINDING_DIR})
+      
+      # Check if this is a symlink at configuration time
+      set(IS_SYMLINK FALSE)
+      if(NOT WIN32 AND EXISTS "${filepath}")
+        execute_process(COMMAND test -L "${filepath}" RESULT_VARIABLE IS_SYMLINK_RESULT OUTPUT_QUIET ERROR_QUIET)
+        if(IS_SYMLINK_RESULT EQUAL 0)
+          set(IS_SYMLINK TRUE)
+        endif()
+      endif()
+      
+      if(WIN32)
+        add_custom_command(OUTPUT "${BINDING_DIR}/${filename}"
+                           COMMAND ${CMAKE_COMMAND} -E copy_if_different ${filepath} ${BINDING_DIR}/${filename}
+                           DEPENDS ${filepath} ${BINDING_DIR})
+              else()
+          # Use cp -P to preserve symlinks on Unix-like systems
+          if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT IS_SYMLINK)
+            # Patch ELF (only for actual binary files, not symlinks)
+            add_custom_command(OUTPUT "${BINDING_DIR}/${filename}"
+                               COMMAND patchelf --set-rpath '$$ORIGIN' "${filepath}"
+                               COMMAND cp -P "${filepath}" "${BINDING_DIR}/${filename}"
+                               DEPENDS "${filepath}" "${BINDING_DIR}")
+          else()
+            # Just copy (for symlinks or non-Linux)
+            add_custom_command(OUTPUT "${BINDING_DIR}/${filename}"
+                               COMMAND cp -P "${filepath}" "${BINDING_DIR}/${filename}"
+                               DEPENDS "${filepath}" "${BINDING_DIR}")
+          endif()
+        endif()
       list(APPEND ARTIFACTS "${BINDING_DIR}/${filename}")
     endforeach()
   endforeach()
